@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadBsbDirectory, parseBsbCsv, parseBsbJson } from "../src/bsbLoader.js";
+import { loadBsbDirectory, parseBsbCsv, parseBsbFixedWidth, parseBsbJson } from "../src/bsbLoader.js";
 
 const CSV = [
   "BSB,Bank,Branch,Street,Suburb,State,Postcode,Flags",
@@ -53,6 +53,41 @@ describe("loadBsbDirectory", () => {
     const empty = join(dir, "e.csv");
     await writeFile(empty, "header only\n");
     await expect(loadBsbDirectory(empty)).rejects.toThrow(/No valid BSB/);
-    await expect(loadBsbDirectory(join(dir, "x.txt"))).rejects.toThrow(/Unsupported/);
+    await expect(loadBsbDirectory(join(dir, "x.xml"))).rejects.toThrow(/Unsupported/);
+  });
+});
+
+const pad = (s: string, n: number) => s.padEnd(n);
+const line = (bsb: string, bank: string, branch: string, addr: string, sub: string, st: string, pc: string, fl: string) =>
+  bsb + bank + pad(branch, 35) + pad(addr, 0) + pad(sub, 20) + st + pc + fl;
+const FW = [
+  "HEADER RECORD  Effective Date: 29 Sep 2026",
+  line("062-000", "CBA", "Sydney Town Hall", "", "Sydney", "NSW", "2000", "PEH "),
+  line("012-003", "ANZ", "Merged", "Refer to BSB 012-019".padEnd(35), "Sydney", "NSW", "2000", "PEH "),
+  line("066-100", "CTB", "Perth\tBranch", "1 St".padEnd(35), "Perth", "WA", "6000", "PE  "),
+  "garbage line",
+  "TRAILER RECORD  Number of records: 3",
+].join("\n");
+
+describe("parseBsbFixedWidth", () => {
+  it("parses records, header date, trailer count, merged BSBs", () => {
+    const r = parseBsbFixedWidth(FW);
+    expect(r.effectiveDate).toBeTruthy();
+    expect(r.declaredCount).toBe(3);
+    expect(r.records.map((x) => x.bsb)).toEqual(["062-000", "012-003", "066-100"]);
+    const merged = r.records[1];
+    expect(merged.active).toBe(false);
+    expect(merged.mergedInto).toBe("012-019");
+    expect(r.records[2].state).toBe("WA");
+    expect(r.records[0].active).not.toBe(false);
+  });
+  it("loads .txt and throws on count mismatch", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bsb-"));
+    const f = join(dir, "bsb.txt");
+    await writeFile(f, FW);
+    expect((await loadBsbDirectory(f)).count).toBe(3);
+    await writeFile(f, FW.replace("records: 3", "records: 9"));
+    await expect(loadBsbDirectory(f)).rejects.toThrow();
+    expect((await loadBsbDirectory(f, { allowCountMismatch: true })).count).toBe(3);
   });
 });

@@ -68,6 +68,15 @@ describe("verifyBankAccount", () => {
     const lax = await request(app({ allowCloseMatch: true })).post("/").send(body({ accountName: "Jon Smith" }));
     expect(lax.status).toBe(200);
   });
+  it("rejects closed BSBs and points at the replacement", async () => {
+    const dir = new InMemoryBsbDirectory([
+      { bsb: "062-000", bank: "CBA", branch: "Old", active: false, mergedInto: "062-001" },
+    ]);
+    const r = await request(app({ bsbDirectory: dir })).post("/").send(body());
+    expect(r.status).toBe(422);
+    expect(r.body.error).toBe("bsb_closed");
+    expect(r.body.verification.message).toContain("062-001");
+  });
   it("400 on invalid input", async () => {
     const r = await request(app()).post("/").send(body({ bsb: "abc" }));
     expect(r.status).toBe(400);

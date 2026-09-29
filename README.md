@@ -43,7 +43,7 @@ app.post("/payees", verifyBankAccount({ provider, bsbDirectory: directory }), ha
 - Supports `.csv` and `.json` (array of `{ bsb, bank, branch, state? }`).
 - CSV defaults to the AP+ BSB Database column order (`BSB, Bank, Branch, Street, Suburb, State, ...`). If your file differs, pass `columns: { bsb, bank, branch, state }` (zero-based indexes).
 - Header rows and malformed lines are skipped and counted in `skipped`. An empty result throws, so a wrong file can't silently disable BSB checks.
-- The fixed-width `.txt` format isn't supported yet.
+- Also reads the AP+ fixed-width `.txt` file. Merged/closed BSBs are flagged inactive and rejected with `bsb_closed` (422), naming the replacement BSB when given. The trailer record count is checked to catch truncated files (override with `allowCountMismatch`); the header's effective date is returned as `effectiveDate`.
 
 ## Providers
 `MockProvider` is for dev/tests. A BSB and account number alone can't prove ownership: you need a real source

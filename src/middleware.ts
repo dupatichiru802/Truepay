@@ -14,6 +14,7 @@ export type VerificationStatus =
   | "name_mismatch"
   | "account_not_found"
   | "bsb_not_found"
+  | "bsb_closed" // BSB exists but was merged/closed; message names the replacement
   | "invalid_input"
   | "provider_error";
 
@@ -54,6 +55,7 @@ const HTTP_STATUS: Record<VerificationStatus, number> = {
   name_mismatch: 422,
   account_not_found: 422,
   bsb_not_found: 422,
+  bsb_closed: 422,
   invalid_input: 400,
   provider_error: 502,
 };
@@ -104,6 +106,14 @@ export function verifyBankAccount(opts: VerifyBankAccountOptions): RequestHandle
     if (bsbDirectory) {
       bank = await bsbDirectory.lookup(bsb);
       if (!bank) return finish(req, res, next, { status: "bsb_not_found", bsb });
+      if (bank.active === false) {
+        return finish(req, res, next, {
+          status: "bsb_closed",
+          bsb,
+          bank,
+          message: bank.mergedInto ? `BSB is closed; use ${bank.mergedInto}` : "BSB is closed",
+        });
+      }
     }
 
     let lookup;

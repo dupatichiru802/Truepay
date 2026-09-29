@@ -5,6 +5,12 @@ export interface BsbRecord {
   bank: string; // institution mnemonic, e.g. "CBA"
   branch: string;
   state?: string;
+  /** false for merged/closed BSBs. Undefined means active. */
+  active?: boolean;
+  /** For merged/closed BSBs, the BSB that replaced them (canonical "NNN-NNN"). */
+  mergedInto?: string;
+  /** Payment-type flags from the AP+ file: P (paper), E (electronic), H (high value). */
+  flags?: string;
 }
 
 export interface BsbDirectory {
