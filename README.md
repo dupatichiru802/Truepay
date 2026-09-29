@@ -33,6 +33,18 @@ Request body: `{ "bsb": "062-000", "accountNumber": "12345678", "accountName": "
 
 The real account name is never returned on a mismatch, only on a `close_match` (as `suggestedName`).
 
+## Loading the BSB directory
+```ts
+import { loadBsbDirectory } from "truepay";
+
+const { directory, count, skipped } = await loadBsbDirectory("./data/bsb.csv");
+app.post("/payees", verifyBankAccount({ provider, bsbDirectory: directory }), handler);
+```
+- Supports `.csv` and `.json` (array of `{ bsb, bank, branch, state? }`).
+- CSV defaults to the AP+ BSB Database column order (`BSB, Bank, Branch, Street, Suburb, State, ...`). If your file differs, pass `columns: { bsb, bank, branch, state }` (zero-based indexes).
+- Header rows and malformed lines are skipped and counted in `skipped`. An empty result throws, so a wrong file can't silently disable BSB checks.
+- The fixed-width `.txt` format isn't supported yet.
+
 ## Providers
 `MockProvider` is for dev/tests. A BSB and account number alone can't prove ownership: you need a real source
 (e.g. Confirmation of Payee via your bank/NPP access, or a verification vendor). Implement `AccountVerificationProvider` for it.
