@@ -47,7 +47,16 @@ app.post("/payees", verifyBankAccount({ provider, bsbDirectory: directory }), ha
 
 ## Providers
 `MockProvider` is for dev/tests. A BSB and account number alone can't prove ownership: you need a real source
-(e.g. Confirmation of Payee via your bank/NPP access, or a verification vendor). Implement `AccountVerificationProvider` for it.
+(e.g. Confirmation of Payee via your bank/NPP access, or a verification vendor). Implement `AccountVerificationProvider` for it, or use the generic `HttpProvider`:
+```ts
+const provider = new HttpProvider({
+  url: process.env.VERIFY_URL!,
+  headers: { Authorization: `Bearer ${process.env.VERIFY_KEY}` },
+  buildRequest: (bsb, acct) => ({ bsb, account_number: acct }),          // match the vendor's contract
+  mapResponse: (j: any) => ({ exists: j.found, accountName: j.holder_name }),
+});
+```
+It enforces https, a timeout (5s), one retry on network errors/429/5xx, and treats 404 as "account not found". Errors surface as `provider_error` (502) with no vendor detail leaked.
 
 ## Dev
 `npm run dev` | `npm test` | `npm run build`
